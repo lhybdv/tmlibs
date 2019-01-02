@@ -72,8 +72,9 @@ func (tuple Tuple256) Compare(other Tuple256) int {
 	firstCompare := tuple.First.Compare(other.First)
 	if firstCompare == 0 {
 		return tuple.Second.Compare(other.Second)
+	} else {
+		return firstCompare
 	}
-	return firstCompare
 }
 
 func Tuple256Split(t Tuple256) (Word256, Word256) {

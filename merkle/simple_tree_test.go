@@ -3,7 +3,7 @@ package merkle
 import (
 	"bytes"
 
-	cmn "github.com/tendermint/tmlibs/common"
+	. "github.com/tendermint/tmlibs/common"
 	. "github.com/tendermint/tmlibs/test"
 
 	"testing"
@@ -19,14 +19,14 @@ func TestSimpleProof(t *testing.T) {
 
 	total := 100
 
-	items := make([]Hasher, total)
+	items := make([]Hashable, total)
 	for i := 0; i < total; i++ {
-		items[i] = testItem(cmn.RandBytes(32))
+		items[i] = testItem(RandBytes(32))
 	}
 
-	rootHash := SimpleHashFromHashers(items)
+	rootHash := SimpleHashFromHashables(items)
 
-	rootHash2, proofs := SimpleProofsFromHashers(items)
+	rootHash2, proofs := SimpleProofsFromHashables(items)
 
 	if !bytes.Equal(rootHash, rootHash2) {
 		t.Errorf("Unmatched root hashes: %X vs %X", rootHash, rootHash2)
@@ -53,7 +53,7 @@ func TestSimpleProof(t *testing.T) {
 
 		// Trail too long should make it fail
 		origAunts := proof.Aunts
-		proof.Aunts = append(proof.Aunts, cmn.RandBytes(32))
+		proof.Aunts = append(proof.Aunts, RandBytes(32))
 		{
 			ok = proof.Verify(i, total, itemHash, rootHash)
 			if ok {

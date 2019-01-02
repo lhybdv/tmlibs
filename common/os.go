@@ -6,40 +6,18 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"os/signal"
-	"path/filepath"
 	"strings"
-	"syscall"
 )
 
-var gopath string
+var (
+	GoPath = os.Getenv("GOPATH")
+)
 
-// GoPath returns GOPATH env variable value. If it is not set, this function
-// will try to call `go env GOPATH` subcommand.
-func GoPath() string {
-	if gopath != "" {
-		return gopath
-	}
-
-	path := os.Getenv("GOPATH")
-	if len(path) == 0 {
-		goCmd := exec.Command("go", "env", "GOPATH")
-		out, err := goCmd.Output()
-		if err != nil {
-			panic(fmt.Sprintf("failed to determine gopath: %v", err))
-		}
-		path = string(out)
-	}
-	gopath = path
-	return path
-}
-
-// TrapSignal catches the SIGTERM and executes cb function. After that it exits
-// with code 1.
 func TrapSignal(cb func()) {
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(c, os.Interrupt)
+	signal.Notify(c, os.Kill)
 	go func() {
 		for sig := range c {
 			fmt.Printf("captured %v, exiting...\n", sig)
@@ -50,15 +28,6 @@ func TrapSignal(cb func()) {
 		}
 	}()
 	select {}
-}
-
-// Kill the running process by sending itself SIGTERM.
-func Kill() error {
-	p, err := os.FindProcess(os.Getpid())
-	if err != nil {
-		return err
-	}
-	return p.Signal(syscall.SIGTERM)
 }
 
 func Exit(s string) {
@@ -79,12 +48,7 @@ func EnsureDir(dir string, mode os.FileMode) error {
 func IsDirEmpty(name string) (bool, error) {
 	f, err := os.Open(name)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return true, err
-		}
-		// Otherwise perhaps a permission
-		// error or some other error.
-		return false, err
+		return true, err //folder is non-existent
 	}
 	defer f.Close()
 
@@ -114,7 +78,12 @@ func MustReadFile(filePath string) []byte {
 }
 
 func WriteFile(filePath string, contents []byte, mode os.FileMode) error {
-	return ioutil.WriteFile(filePath, contents, mode)
+	err := ioutil.WriteFile(filePath, contents, mode)
+	if err != nil {
+		return err
+	}
+	// fmt.Printf("File written to %v.\n", filePath)
+	return nil
 }
 
 func MustWriteFile(filePath string, contents []byte, mode os.FileMode) {
@@ -124,35 +93,29 @@ func MustWriteFile(filePath string, contents []byte, mode os.FileMode) {
 	}
 }
 
-// WriteFileAtomic creates a temporary file with data and the perm given and
-// swaps it atomically with filename if successful.
-func WriteFileAtomic(filename string, data []byte, perm os.FileMode) error {
-	var (
-		dir      = filepath.Dir(filename)
-		tempFile = filepath.Join(dir, "write-file-atomic-"+RandStr(32))
-		// Override in case it does exist, create in case it doesn't and force kernel
-		// flush, which still leaves the potential of lingering disk cache.
-		flag = os.O_WRONLY | os.O_CREATE | os.O_SYNC | os.O_TRUNC
-	)
-
-	f, err := os.OpenFile(tempFile, flag, perm)
+// Writes to newBytes to filePath.
+// Guaranteed not to lose *both* oldBytes and newBytes,
+// (assuming that the OS is perfect)
+func WriteFileAtomic(filePath string, newBytes []byte, mode os.FileMode) error {
+	// If a file already exists there, copy to filePath+".bak" (overwrite anything)
+	if _, err := os.Stat(filePath); !os.IsNotExist(err) {
+		fileBytes, err := ioutil.ReadFile(filePath)
+		if err != nil {
+			return fmt.Errorf("Could not read file %v. %v", filePath, err)
+		}
+		err = ioutil.WriteFile(filePath+".bak", fileBytes, mode)
+		if err != nil {
+			return fmt.Errorf("Could not write file %v. %v", filePath+".bak", err)
+		}
+	}
+	// Write newBytes to filePath.new
+	err := ioutil.WriteFile(filePath+".new", newBytes, mode)
 	if err != nil {
-		return err
+		return fmt.Errorf("Could not write file %v. %v", filePath+".new", err)
 	}
-	// Clean up in any case. Defer stacking order is last-in-first-out.
-	defer os.Remove(f.Name())
-	defer f.Close()
-
-	if n, err := f.Write(data); err != nil {
-		return err
-	} else if n < len(data) {
-		return io.ErrShortWrite
-	}
-	// Close the file before renaming it, otherwise it will cause "The process 
-	// cannot access the file because it is being used by another process." on windows.
-	f.Close()
-
-	return os.Rename(f.Name(), filename)
+	// Move filePath.new to filePath
+	err = os.Rename(filePath+".new", filePath)
+	return err
 }
 
 //--------------------------------------------------------------------------------
@@ -186,10 +149,11 @@ func Prompt(prompt string, defaultValue string) (string, error) {
 	line, err := reader.ReadString('\n')
 	if err != nil {
 		return defaultValue, err
+	} else {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			return defaultValue, nil
+		}
+		return line, nil
 	}
-	line = strings.TrimSpace(line)
-	if line == "" {
-		return defaultValue, nil
-	}
-	return line, nil
 }

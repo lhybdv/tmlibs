@@ -3,7 +3,7 @@ package common
 import (
 	"encoding/binary"
 	"fmt"
-	"regexp"
+	"math/rand"
 	"strings"
 	"sync"
 )
@@ -16,7 +16,7 @@ type BitArray struct {
 
 // There is no BitArray whose Size is 0.  Use nil instead.
 func NewBitArray(bits int) *BitArray {
-	if bits <= 0 {
+	if bits == 0 {
 		return nil
 	}
 	return &BitArray{
@@ -100,14 +100,8 @@ func (bA *BitArray) copyBits(bits int) *BitArray {
 
 // Returns a BitArray of larger bits size.
 func (bA *BitArray) Or(o *BitArray) *BitArray {
-	if bA == nil && o == nil {
-		return nil
-	}
-	if bA == nil && o != nil {
-		return o.Copy()
-	}
-	if o == nil {
-		return bA.Copy()
+	if bA == nil {
+		o.Copy()
 	}
 	bA.mtx.Lock()
 	defer bA.mtx.Unlock()
@@ -120,7 +114,7 @@ func (bA *BitArray) Or(o *BitArray) *BitArray {
 
 // Returns a BitArray of smaller bit size.
 func (bA *BitArray) And(o *BitArray) *BitArray {
-	if bA == nil || o == nil {
+	if bA == nil {
 		return nil
 	}
 	bA.mtx.Lock()
@@ -150,8 +144,7 @@ func (bA *BitArray) Not() *BitArray {
 }
 
 func (bA *BitArray) Sub(o *BitArray) *BitArray {
-	if bA == nil || o == nil {
-		// TODO: Decide if we should do 1's complement here?
+	if bA == nil {
 		return nil
 	}
 	bA.mtx.Lock()
@@ -169,8 +162,9 @@ func (bA *BitArray) Sub(o *BitArray) *BitArray {
 			}
 		}
 		return c
+	} else {
+		return bA.and(o.Not()) // Note degenerate case where o == nil
 	}
-	return bA.and(o.Not()) // Note degenerate case where o == nil
 }
 
 func (bA *BitArray) IsEmpty() bool {
@@ -218,12 +212,12 @@ func (bA *BitArray) PickRandom() (int, bool) {
 	if length == 0 {
 		return 0, false
 	}
-	randElemStart := RandIntn(length)
+	randElemStart := rand.Intn(length)
 	for i := 0; i < length; i++ {
 		elemIdx := ((i + randElemStart) % length)
 		if elemIdx < length-1 {
 			if bA.Elems[elemIdx] > 0 {
-				randBitStart := RandIntn(64)
+				randBitStart := rand.Intn(64)
 				for j := 0; j < 64; j++ {
 					bitIdx := ((j + randBitStart) % 64)
 					if (bA.Elems[elemIdx] & (uint64(1) << uint(bitIdx))) > 0 {
@@ -238,7 +232,7 @@ func (bA *BitArray) PickRandom() (int, bool) {
 			if elemBits == 0 {
 				elemBits = 64
 			}
-			randBitStart := RandIntn(elemBits)
+			randBitStart := rand.Intn(elemBits)
 			for j := 0; j < elemBits; j++ {
 				bitIdx := ((j + randBitStart) % elemBits)
 				if (bA.Elems[elemIdx] & (uint64(1) << uint(bitIdx))) > 0 {
@@ -250,14 +244,13 @@ func (bA *BitArray) PickRandom() (int, bool) {
 	return 0, false
 }
 
-// String returns a string representation of BitArray: BA{<bit-string>},
-// where <bit-string> is a sequence of 'x' (1) and '_' (0).
-// The <bit-string> includes spaces and newlines to help people.
-// For a simple sequence of 'x' and '_' characters with no spaces or newlines,
-// see the MarshalJSON() method.
-// Example: "BA{_x_}" or "nil-BitArray" for nil.
 func (bA *BitArray) String() string {
-	return bA.StringIndented("")
+	if bA == nil {
+		return "nil-BitArray"
+	}
+	bA.mtx.Lock()
+	defer bA.mtx.Unlock()
+	return bA.stringIndented("")
 }
 
 func (bA *BitArray) StringIndented(indent string) string {
@@ -270,11 +263,12 @@ func (bA *BitArray) StringIndented(indent string) string {
 }
 
 func (bA *BitArray) stringIndented(indent string) string {
+
 	lines := []string{}
 	bits := ""
 	for i := 0; i < bA.Bits; i++ {
 		if bA.getIndex(i) {
-			bits += "x"
+			bits += "X"
 		} else {
 			bits += "_"
 		}
@@ -283,10 +277,10 @@ func (bA *BitArray) stringIndented(indent string) string {
 			bits = ""
 		}
 		if i%10 == 9 {
-			bits += indent
+			bits += " "
 		}
 		if i%50 == 49 {
-			bits += indent
+			bits += " "
 		}
 	}
 	if len(bits) > 0 {
@@ -313,66 +307,11 @@ func (bA *BitArray) Bytes() []byte {
 // so if necessary, caller must copy or lock o prior to calling Update.
 // If bA is nil, does nothing.
 func (bA *BitArray) Update(o *BitArray) {
-	if bA == nil || o == nil {
+	if bA == nil {
 		return
 	}
 	bA.mtx.Lock()
 	defer bA.mtx.Unlock()
 
 	copy(bA.Elems, o.Elems)
-}
-
-// MarshalJSON implements json.Marshaler interface by marshaling bit array
-// using a custom format: a string of '-' or 'x' where 'x' denotes the 1 bit.
-func (bA *BitArray) MarshalJSON() ([]byte, error) {
-	if bA == nil {
-		return []byte("null"), nil
-	}
-
-	bA.mtx.Lock()
-	defer bA.mtx.Unlock()
-
-	bits := `"`
-	for i := 0; i < bA.Bits; i++ {
-		if bA.getIndex(i) {
-			bits += `x`
-		} else {
-			bits += `_`
-		}
-	}
-	bits += `"`
-	return []byte(bits), nil
-}
-
-var bitArrayJSONRegexp = regexp.MustCompile(`\A"([_x]*)"\z`)
-
-// UnmarshalJSON implements json.Unmarshaler interface by unmarshaling a custom
-// JSON description.
-func (bA *BitArray) UnmarshalJSON(bz []byte) error {
-	b := string(bz)
-	if b == "null" {
-		// This is required e.g. for encoding/json when decoding
-		// into a pointer with pre-allocated BitArray.
-		bA.Bits = 0
-		bA.Elems = nil
-		return nil
-	}
-
-	// Validate 'b'.
-	match := bitArrayJSONRegexp.FindStringSubmatch(b)
-	if match == nil {
-		return fmt.Errorf("BitArray in JSON should be a string of format %q but got %s", bitArrayJSONRegexp.String(), b)
-	}
-	bits := match[1]
-
-	// Construct new BitArray and copy over.
-	numBits := len(bits)
-	bA2 := NewBitArray(numBits)
-	for i := 0; i < numBits; i++ {
-		if bits[i] == 'x' {
-			bA2.SetIndex(i, true)
-		}
-	}
-	*bA = *bA2
-	return nil
 }

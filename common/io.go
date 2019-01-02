@@ -20,8 +20,9 @@ func (pr *PrefixedReader) Read(p []byte) (n int, err error) {
 		read := copy(p, pr.Prefix)
 		pr.Prefix = pr.Prefix[read:]
 		return read, nil
+	} else {
+		return pr.reader.Read(p)
 	}
-	return pr.reader.Read(p)
 }
 
 // NOTE: Not goroutine safe

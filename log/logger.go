@@ -8,9 +8,9 @@ import (
 
 // Logger is what any Tendermint library should take.
 type Logger interface {
-	Debug(msg string, keyvals ...interface{})
-	Info(msg string, keyvals ...interface{})
-	Error(msg string, keyvals ...interface{})
+	Debug(msg string, keyvals ...interface{}) error
+	Info(msg string, keyvals ...interface{}) error
+	Error(msg string, keyvals ...interface{}) error
 
 	With(keyvals ...interface{}) Logger
 }

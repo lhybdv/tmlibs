@@ -3,15 +3,18 @@ package cli
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	data "github.com/tendermint/go-wire/data"
+	"github.com/tendermint/go-wire/data/base58"
 )
 
 const (
+	RootFlag     = "root"
 	HomeFlag     = "home"
 	TraceFlag    = "trace"
 	OutputFlag   = "output"
@@ -25,9 +28,14 @@ type Executable interface {
 }
 
 // PrepareBaseCmd is meant for tendermint and other servers
-func PrepareBaseCmd(cmd *cobra.Command, envPrefix, defaultHome string) Executor {
+func PrepareBaseCmd(cmd *cobra.Command, envPrefix, defautRoot string) Executor {
 	cobra.OnInitialize(func() { initEnv(envPrefix) })
-	cmd.PersistentFlags().StringP(HomeFlag, "", defaultHome, "directory for config and data")
+	cmd.PersistentFlags().StringP(RootFlag, "r", defautRoot, "DEPRECATED. Use --home")
+	// -h is already reserved for --help as part of the cobra framework
+	// do you want to try something else??
+	// also, default must be empty, so we can detect this unset and fall back
+	// to --root / TM_ROOT / TMROOT
+	cmd.PersistentFlags().String(HomeFlag, "", "root directory for config and data")
 	cmd.PersistentFlags().Bool(TraceFlag, false, "print out full stack trace on errors")
 	cmd.PersistentPreRunE = concatCobraCmdFuncs(bindFlagsLoadViper, cmd.PersistentPreRunE)
 	return Executor{cmd, os.Exit}
@@ -37,11 +45,11 @@ func PrepareBaseCmd(cmd *cobra.Command, envPrefix, defaultHome string) Executor 
 //
 // This adds --encoding (hex, btc, base64) and --output (text, json) to
 // the command.  These only really make sense in interactive commands.
-func PrepareMainCmd(cmd *cobra.Command, envPrefix, defaultHome string) Executor {
+func PrepareMainCmd(cmd *cobra.Command, envPrefix, defautRoot string) Executor {
 	cmd.PersistentFlags().StringP(EncodingFlag, "e", "hex", "Binary encoding (hex|b64|btc)")
 	cmd.PersistentFlags().StringP(OutputFlag, "o", "text", "Output format (text|json)")
-	cmd.PersistentPreRunE = concatCobraCmdFuncs(validateOutput, cmd.PersistentPreRunE)
-	return PrepareBaseCmd(cmd, envPrefix, defaultHome)
+	cmd.PersistentPreRunE = concatCobraCmdFuncs(setEncoding, validateOutput, cmd.PersistentPreRunE)
+	return PrepareBaseCmd(cmd, envPrefix, defautRoot)
 }
 
 // initEnv sets to use ENV variables if set.
@@ -89,9 +97,9 @@ func (e Executor) Execute() error {
 	err := e.Command.Execute()
 	if err != nil {
 		if viper.GetBool(TraceFlag) {
-			fmt.Fprintf(os.Stderr, "ERROR: %+v\n", err)
+			fmt.Printf("ERROR: %+v\n", err)
 		} else {
-			fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+			fmt.Println("ERROR:", err.Error())
 		}
 
 		// return error code 1 by default, can override it with a special error type
@@ -128,19 +136,43 @@ func bindFlagsLoadViper(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	homeDir := viper.GetString(HomeFlag)
-	viper.Set(HomeFlag, homeDir)
-	viper.SetConfigName("config")                         // name of config file (without extension)
-	viper.AddConfigPath(homeDir)                          // search root directory
-	viper.AddConfigPath(filepath.Join(homeDir, "config")) // search root directory /config
+	// rootDir is command line flag, env variable, or default $HOME/.tlc
+	// NOTE: we support both --root and --home for now, but eventually only --home
+	// Also ensure we set the correct rootDir under HomeFlag so we dont need to
+	// repeat this logic elsewhere.
+	rootDir := viper.GetString(HomeFlag)
+	if rootDir == "" {
+		rootDir = viper.GetString(RootFlag)
+		viper.Set(HomeFlag, rootDir)
+	}
+	viper.SetConfigName("config") // name of config file (without extension)
+	viper.AddConfigPath(rootDir)  // search root directory
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
 		// stderr, so if we redirect output to json file, this doesn't appear
 		// fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
 	} else if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-		// ignore not found error, return other errors
-		return err
+		// we ignore not found error, only parse error
+		// stderr, so if we redirect output to json file, this doesn't appear
+		fmt.Fprintf(os.Stderr, "%#v", err)
+	}
+	return nil
+}
+
+// setEncoding reads the encoding flag
+func setEncoding(cmd *cobra.Command, args []string) error {
+	// validate and set encoding
+	enc := viper.GetString("encoding")
+	switch enc {
+	case "hex":
+		data.Encoder = data.HexEncoder
+	case "b64":
+		data.Encoder = data.B64Encoder
+	case "btc":
+		data.Encoder = base58.BTCEncoder
+	default:
+		return errors.Errorf("Unsupported encoding: %s", enc)
 	}
 	return nil
 }

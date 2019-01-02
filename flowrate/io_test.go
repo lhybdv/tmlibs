@@ -121,15 +121,7 @@ func TestWriter(t *testing.T) {
 	w.SetBlocking(true)
 	if n, err := w.Write(b[20:]); n != 80 || err != nil {
 		t.Fatalf("w.Write(b[20:]) expected 80 (<nil>); got %v (%v)", n, err)
-	} else if rt := time.Since(start); rt < _300ms {
-		// Explanation for `rt < _300ms` (as opposed to `< _400ms`)
-		//
-		//                 |<-- start        |        |
-		// epochs: -----0ms|---100ms|---200ms|---300ms|---400ms
-		// sends:        20|20      |20      |20      |20#
-		//
-		// NOTE: The '#' symbol can thus happen before 400ms is up.
-		// Thus, we can only panic if rt < _300ms.
+	} else if rt := time.Since(start); rt < _400ms {
 		t.Fatalf("w.Write(b[20:]) returned ahead of time (%v)", rt)
 	}
 
@@ -179,7 +171,10 @@ func statusesAreEqual(s1 *Status, s2 *Status) bool {
 }
 
 func durationsAreEqual(d1 time.Duration, d2 time.Duration, maxDeviation time.Duration) bool {
-	return d2-d1 <= maxDeviation
+	if d2-d1 <= maxDeviation {
+		return true
+	}
+	return false
 }
 
 func ratesAreEqual(r1 int64, r2 int64, maxDeviation int64) bool {

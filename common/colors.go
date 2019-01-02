@@ -38,8 +38,9 @@ const (
 func treat(s string, color string) string {
 	if len(s) > 2 && s[:2] == "\x1b[" {
 		return s
+	} else {
+		return color + s + ANSIReset
 	}
-	return color + s + ANSIReset
 }
 
 func treatAll(color string, args ...interface{}) string {
@@ -80,16 +81,4 @@ func Cyan(args ...interface{}) string {
 
 func White(args ...interface{}) string {
 	return treatAll(ANSIFgWhite, args...)
-}
-
-func ColoredBytes(data []byte, textColor, bytesColor func(...interface{}) string) string {
-	s := ""
-	for _, b := range data {
-		if 0x21 <= b && b < 0x7F {
-			s += textColor(string(b))
-		} else {
-			s += bytesColor(Fmt("%02X", b))
-		}
-	}
-	return s
 }

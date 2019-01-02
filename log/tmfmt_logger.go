@@ -35,8 +35,7 @@ type tmfmtLogger struct {
 }
 
 // NewTMFmtLogger returns a logger that encodes keyvals to the Writer in
-// Tendermint custom format. Note complex types (structs, maps, slices)
-// formatted as "%+v".
+// Tendermint custom format.
 //
 // Each log event produces no more than one call to w.Write.
 // The passed Writer must be safe for concurrent use by multiple goroutines if
@@ -50,10 +49,9 @@ func (l tmfmtLogger) Log(keyvals ...interface{}) error {
 	enc.Reset()
 	defer tmfmtEncoderPool.Put(enc)
 
-	const unknown = "unknown"
 	lvl := "none"
-	msg := unknown
-	module := unknown
+	msg := "unknown"
+	module := "unknown"
 
 	// indexes of keys to skip while encoding later
 	excludeIndexes := make([]int, 0)
@@ -92,7 +90,7 @@ func (l tmfmtLogger) Log(keyvals ...interface{}) error {
 	//     Stopping ...					- message
 	enc.buf.WriteString(fmt.Sprintf("%c[%s] %-44s ", lvl[0]-32, time.Now().UTC().Format("01-02|15:04:05.000"), msg))
 
-	if module != unknown {
+	if module != "unknown" {
 		enc.buf.WriteString("module=" + module + " ")
 	}
 
@@ -104,10 +102,7 @@ KeyvalueLoop:
 			}
 		}
 
-		err := enc.EncodeKeyval(keyvals[i], keyvals[i+1])
-		if err == logfmt.ErrUnsupportedValueType {
-			enc.EncodeKeyval(keyvals[i], fmt.Sprintf("%+v", keyvals[i+1]))
-		} else if err != nil {
+		if err := enc.EncodeKeyval(keyvals[i], keyvals[i+1]); err != nil {
 			return err
 		}
 	}

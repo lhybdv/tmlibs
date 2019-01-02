@@ -1,25 +1,53 @@
 package db
 
-import "fmt"
+import . "github.com/tendermint/tmlibs/common"
 
-//----------------------------------------
-// Main entry
+type DB interface {
+	Get([]byte) []byte
+	Set([]byte, []byte)
+	SetSync([]byte, []byte)
+	Delete([]byte)
+	DeleteSync([]byte)
+	Close()
+	NewBatch() Batch
 
-type DBBackendType string
+	// For debugging
+	Print()
+	Iterator() Iterator
+	Stats() map[string]string
+}
+
+type Batch interface {
+	Set(key, value []byte)
+	Delete(key []byte)
+	Write()
+}
+
+type Iterator interface {
+	Next() bool
+
+	Key() []byte
+	Value() []byte
+}
+
+//-----------------------------------------------------------------------------
 
 const (
-	LevelDBBackend   DBBackendType = "leveldb" // legacy, defaults to goleveldb unless +gcc
-	CLevelDBBackend  DBBackendType = "cleveldb"
-	GoLevelDBBackend DBBackendType = "goleveldb"
-	MemDBBackend     DBBackendType = "memdb"
-	FSDBBackend      DBBackendType = "fsdb" // using the filesystem naively
+	LevelDBBackendStr   = "leveldb" // legacy, defaults to goleveldb.
+	CLevelDBBackendStr  = "cleveldb"
+	GoLevelDBBackendStr = "goleveldb"
+	MemDBBackendStr     = "memdb"
+
+	// TriasDBBackend is a DB implementation for Trias
+	TriasDBBackendStr = "triasdb"
+	RocksDBBackendStr = "rocksdb"
 )
 
 type dbCreator func(name string, dir string) (DB, error)
 
-var backends = map[DBBackendType]dbCreator{}
+var backends = map[string]dbCreator{}
 
-func registerDBCreator(backend DBBackendType, creator dbCreator, force bool) {
+func registerDBCreator(backend string, creator dbCreator, force bool) {
 	_, ok := backends[backend]
 	if !force && ok {
 		return
@@ -27,10 +55,10 @@ func registerDBCreator(backend DBBackendType, creator dbCreator, force bool) {
 	backends[backend] = creator
 }
 
-func NewDB(name string, backend DBBackendType, dir string) DB {
+func NewDB(name string, backend string, dir string) DB {
 	db, err := backends[backend](name, dir)
 	if err != nil {
-		panic(fmt.Sprintf("Error initializing DB: %v", err))
+		PanicSanity(Fmt("Error initializing DB: %v", err))
 	}
 	return db
 }

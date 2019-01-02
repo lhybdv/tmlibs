@@ -15,14 +15,7 @@ import (
 	"sync"
 	"time"
 
-	cmn "github.com/tendermint/tmlibs/common"
-)
-
-const (
-	groupCheckDuration    = 5000 * time.Millisecond
-	defaultHeadSizeLimit  = 10 * 1024 * 1024       // 10MB
-	defaultTotalSizeLimit = 1 * 1024 * 1024 * 1024 // 1GB
-	maxFilesToRemove      = 4                      // needs to be greater than 1
+	. "github.com/tendermint/tmlibs/common"
 )
 
 /*
@@ -32,29 +25,35 @@ stored in the group.
 
 The first file to be written in the Group.Dir is the head file.
 
-	Dir/
-	- <HeadPath>
+  Dir/
+  - <HeadPath>
 
 Once the Head file reaches the size limit, it will be rotated.
 
-	Dir/
-	- <HeadPath>.000   // First rolled file
-	- <HeadPath>       // New head path, starts empty.
-										 // The implicit index is 001.
+  Dir/
+  - <HeadPath>.000   // First rolled file
+  - <HeadPath>       // New head path, starts empty.
+                     // The implicit index is 001.
 
 As more files are written, the index numbers grow...
 
-	Dir/
-	- <HeadPath>.000   // First rolled file
-	- <HeadPath>.001   // Second rolled file
-	- ...
-	- <HeadPath>       // New head path
+  Dir/
+  - <HeadPath>.000   // First rolled file
+  - <HeadPath>.001   // Second rolled file
+  - ...
+  - <HeadPath>       // New head path
 
 The Group can also be used to binary-search for some line,
 assuming that marker lines are written occasionally.
 */
+
+const groupCheckDuration = 5000 * time.Millisecond
+const defaultHeadSizeLimit = 10 * 1024 * 1024        // 10MB
+const defaultTotalSizeLimit = 1 * 1024 * 1024 * 1024 // 1GB
+const maxFilesToRemove = 4                           // needs to be greater than 1
+
 type Group struct {
-	cmn.BaseService
+	BaseService
 
 	ID             string
 	Head           *AutoFile // The head AutoFile to write to
@@ -71,9 +70,8 @@ type Group struct {
 	// and their dependencies.
 }
 
-// OpenGroup creates a new Group with head at headPath. It returns an error if
-// it fails to open head file.
 func OpenGroup(headPath string) (g *Group, err error) {
+
 	dir := path.Dir(headPath)
 	head, err := OpenAutoFile(headPath)
 	if err != nil {
@@ -91,7 +89,7 @@ func OpenGroup(headPath string) (g *Group, err error) {
 		minIndex:       0,
 		maxIndex:       0,
 	}
-	g.BaseService = *cmn.NewBaseService(nil, "Group", g)
+	g.BaseService = *NewBaseService(nil, "Group", g)
 
 	gInfo := g.readGroupInfo()
 	g.minIndex = gInfo.MinIndex
@@ -99,84 +97,50 @@ func OpenGroup(headPath string) (g *Group, err error) {
 	return
 }
 
-// OnStart implements Service by starting the goroutine that checks file and
-// group limits.
 func (g *Group) OnStart() error {
+	g.BaseService.OnStart()
 	go g.processTicks()
 	return nil
 }
 
-// OnStop implements Service by stopping the goroutine described above.
-// NOTE: g.Head must be closed separately using Close.
+// NOTE: g.Head must be closed separately
 func (g *Group) OnStop() {
+	g.BaseService.OnStop()
 	g.ticker.Stop()
-	g.Flush() // flush any uncommitted data
+	return
 }
 
-// Close closes the head file. The group must be stopped by this moment.
-func (g *Group) Close() {
-	g.Flush() // flush any uncommitted data
-
-	g.mtx.Lock()
-	_ = g.Head.closeFile()
-	g.mtx.Unlock()
-}
-
-// SetHeadSizeLimit allows you to overwrite default head size limit - 10MB.
 func (g *Group) SetHeadSizeLimit(limit int64) {
 	g.mtx.Lock()
 	g.headSizeLimit = limit
 	g.mtx.Unlock()
 }
 
-// HeadSizeLimit returns the current head size limit.
 func (g *Group) HeadSizeLimit() int64 {
 	g.mtx.Lock()
 	defer g.mtx.Unlock()
 	return g.headSizeLimit
 }
 
-// SetTotalSizeLimit allows you to overwrite default total size limit of the
-// group - 1GB.
 func (g *Group) SetTotalSizeLimit(limit int64) {
 	g.mtx.Lock()
 	g.totalSizeLimit = limit
 	g.mtx.Unlock()
 }
 
-// TotalSizeLimit returns total size limit of the group.
 func (g *Group) TotalSizeLimit() int64 {
 	g.mtx.Lock()
 	defer g.mtx.Unlock()
 	return g.totalSizeLimit
 }
 
-// MaxIndex returns index of the last file in the group.
 func (g *Group) MaxIndex() int {
 	g.mtx.Lock()
 	defer g.mtx.Unlock()
 	return g.maxIndex
 }
 
-// MinIndex returns index of the first file in the group.
-func (g *Group) MinIndex() int {
-	g.mtx.Lock()
-	defer g.mtx.Unlock()
-	return g.minIndex
-}
-
-// Write writes the contents of p into the current head of the group. It
-// returns the number of bytes written. If nn < len(p), it also returns an
-// error explaining why the write is short.
-// NOTE: Writes are buffered so they don't write synchronously
-// TODO: Make it halt if space is unavailable
-func (g *Group) Write(p []byte) (nn int, err error) {
-	g.mtx.Lock()
-	defer g.mtx.Unlock()
-	return g.headBuf.Write(p)
-}
-
-// WriteLine writes line into the current head of the group. It also appends "\n".
+// Auto appends "\n"
 // NOTE: Writes are buffered so they don't write synchronously
 // TODO: Make it halt if space is unavailable
 func (g *Group) WriteLine(line string) error {
@@ -186,16 +150,10 @@ func (g *Group) WriteLine(line string) error {
 	return err
 }
 
-// Flush writes any buffered data to the underlying file and commits the
-// current content of the file to stable storage.
 func (g *Group) Flush() error {
 	g.mtx.Lock()
 	defer g.mtx.Unlock()
-	err := g.headBuf.Flush()
-	if err == nil {
-		err = g.Head.Sync()
-	}
-	return err
+	return g.headBuf.Flush()
 }
 
 func (g *Group) processTicks() {
@@ -262,8 +220,6 @@ func (g *Group) checkTotalSizeLimit() {
 	}
 }
 
-// RotateFile causes group to close the current head and assign it some index.
-// Note it does not create a new head.
 func (g *Group) RotateFile() {
 	g.mtx.Lock()
 	defer g.mtx.Unlock()
@@ -279,18 +235,19 @@ func (g *Group) RotateFile() {
 		panic(err)
 	}
 
-	g.maxIndex++
+	g.maxIndex += 1
 }
 
-// NewReader returns a new group reader.
-// CONTRACT: Caller must close the returned GroupReader.
+// NOTE: if error, returns no GroupReader.
+// CONTRACT: Caller must close the returned GroupReader
 func (g *Group) NewReader(index int) (*GroupReader, error) {
 	r := newGroupReader(g)
 	err := r.SetIndex(index)
 	if err != nil {
 		return nil, err
+	} else {
+		return r, nil
 	}
-	return r, nil
 }
 
 // Returns -1 if line comes after, 0 if found, 1 if line comes before.
@@ -322,8 +279,9 @@ func (g *Group) Search(prefix string, cmp SearchFunc) (*GroupReader, bool, error
 			if err != nil {
 				r.Close()
 				return nil, false, err
+			} else {
+				return r, match, err
 			}
-			return r, match, err
 		}
 
 		// Read starting roughly at the middle file,
@@ -359,8 +317,9 @@ func (g *Group) Search(prefix string, cmp SearchFunc) (*GroupReader, bool, error
 			if err != nil {
 				r.Close()
 				return nil, false, err
+			} else {
+				return r, true, err
 			}
-			return r, true, err
 		} else {
 			// We passed it
 			maxIndex = curIndex - 1
@@ -438,8 +397,9 @@ GROUP_LOOP:
 			if err == io.EOF {
 				if found {
 					return match, found, nil
+				} else {
+					continue GROUP_LOOP
 				}
-				continue GROUP_LOOP
 			} else if err != nil {
 				return "", false, err
 			}
@@ -450,8 +410,9 @@ GROUP_LOOP:
 			if r.CurIndex() > i {
 				if found {
 					return match, found, nil
+				} else {
+					continue GROUP_LOOP
 				}
-				continue GROUP_LOOP
 			}
 		}
 	}
@@ -459,15 +420,14 @@ GROUP_LOOP:
 	return
 }
 
-// GroupInfo holds information about the group.
 type GroupInfo struct {
-	MinIndex  int   // index of the first file in the group, including head
-	MaxIndex  int   // index of the last file in the group, including head
-	TotalSize int64 // total size of the group
-	HeadSize  int64 // size of the head
+	MinIndex  int
+	MaxIndex  int
+	TotalSize int64
+	HeadSize  int64
 }
 
-// Returns info after scanning all files in g.Head's dir.
+// Returns info after scanning all files in g.Head's dir
 func (g *Group) ReadGroupInfo() GroupInfo {
 	g.mtx.Lock()
 	defer g.mtx.Unlock()
@@ -527,7 +487,7 @@ func (g *Group) readGroupInfo() GroupInfo {
 		minIndex, maxIndex = 0, 0
 	} else {
 		// Otherwise, the head file is 1 greater
-		maxIndex++
+		maxIndex += 1
 	}
 	return GroupInfo{minIndex, maxIndex, totalSize, headSize}
 }
@@ -535,13 +495,13 @@ func (g *Group) readGroupInfo() GroupInfo {
 func filePathForIndex(headPath string, index int, maxIndex int) string {
 	if index == maxIndex {
 		return headPath
+	} else {
+		return fmt.Sprintf("%v.%03d", headPath, index)
 	}
-	return fmt.Sprintf("%v.%03d", headPath, index)
 }
 
 //--------------------------------------------------------------------------------
 
-// GroupReader provides an interface for reading from a Group.
 type GroupReader struct {
 	*Group
 	mtx       sync.Mutex
@@ -561,7 +521,6 @@ func newGroupReader(g *Group) *GroupReader {
 	}
 }
 
-// Close closes the GroupReader by closing the cursor file.
 func (gr *GroupReader) Close() error {
 	gr.mtx.Lock()
 	defer gr.mtx.Unlock()
@@ -573,50 +532,12 @@ func (gr *GroupReader) Close() error {
 		gr.curFile = nil
 		gr.curLine = nil
 		return err
-	}
-	return nil
-}
-
-// Read implements io.Reader, reading bytes from the current Reader
-// incrementing index until enough bytes are read.
-func (gr *GroupReader) Read(p []byte) (n int, err error) {
-	lenP := len(p)
-	if lenP == 0 {
-		return 0, errors.New("given empty slice")
-	}
-
-	gr.mtx.Lock()
-	defer gr.mtx.Unlock()
-
-	// Open file if not open yet
-	if gr.curReader == nil {
-		if err = gr.openFile(gr.curIndex); err != nil {
-			return 0, err
-		}
-	}
-
-	// Iterate over files until enough bytes are read
-	var nn int
-	for {
-		nn, err = gr.curReader.Read(p[n:])
-		n += nn
-		if err == io.EOF {
-			if n >= lenP {
-				return n, nil
-			}
-			// Open the next file
-			if err1 := gr.openFile(gr.curIndex + 1); err1 != nil {
-				return n, err1
-			}
-		} else if err != nil {
-			return n, err
-		} else if nn == 0 { // empty file
-			return n, err
-		}
+	} else {
+		return nil
 	}
 }
 
-// ReadLine reads a line (without delimiter).
+// Reads a line (without delimiter)
 // just return io.EOF if no new lines found.
 func (gr *GroupReader) ReadLine() (string, error) {
 	gr.mtx.Lock()
@@ -643,14 +564,16 @@ func (gr *GroupReader) ReadLine() (string, error) {
 		bytesRead, err := gr.curReader.ReadBytes('\n')
 		if err == io.EOF {
 			// Open the next file
-			if err1 := gr.openFile(gr.curIndex + 1); err1 != nil {
-				return "", err1
+			err := gr.openFile(gr.curIndex + 1)
+			if err != nil {
+				return "", err
 			}
 			if len(bytesRead) > 0 && bytesRead[len(bytesRead)-1] == byte('\n') {
 				return linePrefix + string(bytesRead[:len(bytesRead)-1]), nil
+			} else {
+				linePrefix += string(bytesRead)
+				continue
 			}
-			linePrefix += string(bytesRead)
-			continue
 		} else if err != nil {
 			return "", err
 		}
@@ -688,9 +611,6 @@ func (gr *GroupReader) openFile(index int) error {
 	return nil
 }
 
-// PushLine makes the given line the current one, so the next time somebody
-// calls ReadLine, this line will be returned.
-// panics if called twice without calling ReadLine.
 func (gr *GroupReader) PushLine(line string) {
 	gr.mtx.Lock()
 	defer gr.mtx.Unlock()
@@ -702,15 +622,13 @@ func (gr *GroupReader) PushLine(line string) {
 	}
 }
 
-// CurIndex returns cursor's file index.
+// Cursor's file index.
 func (gr *GroupReader) CurIndex() int {
 	gr.mtx.Lock()
 	defer gr.mtx.Unlock()
 	return gr.curIndex
 }
 
-// SetIndex sets the cursor's file index to index by opening a file at this
-// position.
 func (gr *GroupReader) SetIndex(index int) error {
 	gr.mtx.Lock()
 	defer gr.mtx.Unlock()
@@ -730,11 +648,11 @@ func (gr *GroupReader) SetIndex(index int) error {
 func MakeSimpleSearchFunc(prefix string, target int) SearchFunc {
 	return func(line string) (int, error) {
 		if !strings.HasPrefix(line, prefix) {
-			return -1, errors.New(cmn.Fmt("Marker line did not have prefix: %v", prefix))
+			return -1, errors.New(Fmt("Marker line did not have prefix: %v", prefix))
 		}
 		i, err := strconv.Atoi(line[len(prefix):])
 		if err != nil {
-			return -1, errors.New(cmn.Fmt("Failed to parse marker line: %v", err.Error()))
+			return -1, errors.New(Fmt("Failed to parse marker line: %v", err.Error()))
 		}
 		if target < i {
 			return 1, nil
