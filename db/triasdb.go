@@ -5,7 +5,7 @@ import (
 	"path"
 	"sync"
 
-	"github.com/trias/filestore/file"
+	"github.com/trias-lab/filestore/file"
 )
 
 func init() {
