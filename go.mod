@@ -1,4 +1,4 @@
-module github.com/trias-lab/tmware
+module github.com/lhybdv/tmlibs
 
 go 1.12
 
