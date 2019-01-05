@@ -6,6 +6,7 @@ github.com/btcsuite/btcd v0.0.0-20181130015935-7d2daa5bfef2 h1:LPHpTTuR7vj3kD7YD
 github.com/btcsuite/btcd v0.0.0-20181130015935-7d2daa5bfef2/go.mod h1:Jr9bmNVGZ7TH2Ux1QuP0ec+yGgh0gE9FIlkzQiI5bR0=
 github.com/btcsuite/btclog v0.0.0-20170628155309-84c8d2346e9f/go.mod h1:TdznJufoqS23FtqVCzL0ZqgP5MqXbb4fg/WgDys70nA=
 github.com/btcsuite/btcutil v0.0.0-20180524032703-d4cc87b86016/go.mod h1:+5NJ2+qvTyV9exUAL/rxXi3DcLg2Ts+ymUAY5y4NvMg=
+github.com/btcsuite/btcutil v0.0.0-20180706230648-ab6388e0c60a h1:RQMUrEILyYJEoAT34XS/kLu40vC0+po/UfxrBBA4qZE=
 github.com/btcsuite/btcutil v0.0.0-20180706230648-ab6388e0c60a/go.mod h1:+5NJ2+qvTyV9exUAL/rxXi3DcLg2Ts+ymUAY5y4NvMg=
 github.com/btcsuite/go-socks v0.0.0-20170105172521-4720035b7bfd/go.mod h1:HHNXQzUsZCxOoE+CPiyCTO6x34Zs86zZUiwtpXoGdtg=
 github.com/btcsuite/goleveldb v0.0.0-20160330041536-7834afc9e8cd/go.mod h1:F+uVaaLLH7j4eDXPRvw78tMflu7Ie2bzYOH4Y8rRKBY=
@@ -64,6 +65,8 @@ github.com/lhybdv/go-wire v0.7.2/go.mod h1:PRmnzIG6eXG93RZWi4zgGFz8E8l9lrLu/+3l7
 github.com/lhybdv/tmlibs v0.6.0 h1:I3w6UpybqSzFgUwngiuswH8Pi3njoqUNmrNsjxH7gpE=
 github.com/lhybdv/tmlibs v0.6.0/go.mod h1:YvdF6HHa5TNv2lBg1HUG69WTEWqi4O+anSnppBk3Ceo=
 github.com/lhybdv/tmlibs v1.0.1/go.mod h1:CUy94yepg0kO5IBgbMItHE4BQ6LAYNtiowyETrZLnJk=
+github.com/lhybdv/tmlibs v1.0.4 h1:gEHgGs2QWi1Vp/2amH+quzQk/TT7844tnJAUcpAMl4w=
+github.com/lhybdv/tmlibs v1.0.4/go.mod h1:sHcNb0OrVfdrnmbnlhh6TIvGhtQl9NUgW0Md522CQ1Y=
 github.com/libp2p/go-flow-metrics v0.2.0 h1:GAJSg/g+xLuc7vz0RN96pRA9q/n5b5+Hs6SndagmOR4=
 github.com/libp2p/go-flow-metrics v0.2.0/go.mod h1:Iv1GH0sG8DtYN3SVJ2eG221wMiNpZxBdp967ls1g+k8=
 github.com/libp2p/go-libp2p-crypto v2.0.1+incompatible h1:JAnZYupeAsZI5UqX50N9MWAVNO5HIfkow249YcmuvVs=

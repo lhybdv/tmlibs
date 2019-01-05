@@ -3,11 +3,9 @@ module github.com/lhybdv/tmlibs
 go 1.12
 
 require (
+	github.com/btcsuite/btcutil v0.0.0-20180706230648-ab6388e0c60a
 	github.com/go-kit/kit v0.8.0
 	github.com/go-logfmt/logfmt v0.4.0
-	github.com/go-playground/locales v0.12.1 // indirect
-	github.com/go-playground/universal-translator v0.16.0 // indirect
-	github.com/leodido/go-urn v1.1.0 // indirect
 	github.com/pkg/errors v0.8.0
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.3.1
@@ -20,6 +18,6 @@ require (
 	gopkg.in/go-playground/validator.v9 v9.24.0
 )
 
-replace github.com/tendermint/tmlibs => github.com/lhybdv/tmlibs v1.0.4
+replace github.com/tendermint/tmlibs => ./
 
 replace github.com/tendermint/go-wire => github.com/lhybdv/go-wire v0.7.2
