@@ -20,6 +20,6 @@ require (
 	gopkg.in/go-playground/validator.v9 v9.24.0
 )
 
-replace github.com/tendermint/tmlibs => github.com/lhybdv/tmlibs v1.0.3
+replace github.com/tendermint/tmlibs => github.com/lhybdv/tmlibs v1.0.4
 
 replace github.com/tendermint/go-wire => github.com/lhybdv/go-wire v0.7.2
