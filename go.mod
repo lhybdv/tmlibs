@@ -12,7 +12,6 @@ require (
 	github.com/stretchr/testify v1.2.2
 	github.com/syndtr/goleveldb v0.0.0-20181128100959-b001fa50d6b2
 	github.com/tendermint/go-wire v0.14.1
-	github.com/tendermint/tmlibs v0.0.0-00010101000000-000000000000
 	github.com/trias-lab/filestore v0.0.2
 	golang.org/x/crypto v0.0.0-20190103213133-ff983b9c42bc
 	gopkg.in/go-playground/validator.v9 v9.24.0
