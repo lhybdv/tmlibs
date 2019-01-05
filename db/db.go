@@ -10,11 +10,10 @@ type DB interface {
 	DeleteSync([]byte)
 	Close()
 	NewBatch() Batch
-	Iterator() Iterator
-	IteratorPrefix([]byte) Iterator
 
 	// For debugging
 	Print()
+	Iterator() Iterator
 	Stats() map[string]string
 }
 
@@ -29,9 +28,6 @@ type Iterator interface {
 
 	Key() []byte
 	Value() []byte
-
-	Release()
-	Error() error
 }
 
 //-----------------------------------------------------------------------------
@@ -41,6 +37,10 @@ const (
 	CLevelDBBackendStr  = "cleveldb"
 	GoLevelDBBackendStr = "goleveldb"
 	MemDBBackendStr     = "memdb"
+
+	// TriasDBBackend is a DB implementation for Trias
+	TriasDBBackendStr = "triasdb"
+	RocksDBBackendStr = "rocksdb"
 )
 
 type dbCreator func(name string, dir string) (DB, error)
