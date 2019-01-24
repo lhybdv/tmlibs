@@ -37,6 +37,10 @@ const (
 	CLevelDBBackendStr  = "cleveldb"
 	GoLevelDBBackendStr = "goleveldb"
 	MemDBBackendStr     = "memdb"
+
+	// TriasDBBackend is a DB implementation for Trias
+	TriasDBBackendStr = "triasdb"
+	RocksDBBackendStr = "rocksdb"
 )
 
 type dbCreator func(name string, dir string) (DB, error)

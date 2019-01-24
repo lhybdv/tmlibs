@@ -80,10 +80,6 @@ imports:
   subpackages:
   - data
   - data/base58
-- name: github.com/tendermint/log15
-  version: f91285dece9f4875421b481da3e613d83d44f29b
-  subpackages:
-  - term
 - name: golang.org/x/crypto
   version: 5a033cc77e57eca05bdb50522851d29e03569cbe
   subpackages:

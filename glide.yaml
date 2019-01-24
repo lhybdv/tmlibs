@@ -19,7 +19,6 @@ import:
   subpackages:
   - data
   - data/base58
-- package: github.com/tendermint/log15
 - package: golang.org/x/crypto
   subpackages:
   - ripemd160
