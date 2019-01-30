@@ -8,8 +8,7 @@ import (
 	"github.com/spf13/viper"
 	"path"
 	"sync"
-
-	"github.com/trias-lab/filestore/file"
+	"github.com/trias-lab/gondwana/file"
 )
 
 func init() {
@@ -33,11 +32,14 @@ type TriasDB struct {
 // NewTriasDB create a TriasDB instance
 func NewTriasDB(dir string) *TriasDB {
 	workDir := path.Join(dir, "store")
-	v := viper.Get("ipfs_url")
-	ipfsurl := v.(string)
+	vbackend := viper.Get("warehouse_backend")
+	vaddress := viper.Get("warehouse_address")
+	backend := vbackend.(string)
+	address := vaddress.(string)
 	opt := file.StoreOptions{
-		FileSize: (1 << 10) * 50,
-		IpfsUrl:  ipfsurl,
+		FileSize: (1 << 20) * 10,
+		WarehouseBackend: backend,
+		WarehouseAddress:  address,
 	}
 	store, err := file.NewFileStore(workDir, opt)
 	if err != nil {
