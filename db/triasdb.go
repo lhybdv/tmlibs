@@ -33,12 +33,12 @@ type TriasDB struct {
 // NewTriasDB create a TriasDB instance
 func NewTriasDB(dir string) *TriasDB {
 	workDir := path.Join(dir, "store")
-	v_backend := viper.Get("warehouse_backend")
-	v_address := viper.Get("warehouse_address")
-	backend := v_backend.(string)
-	address := v_address.(string)
+	vbackend := viper.Get("warehouse_backend")
+	vaddress := viper.Get("warehouse_address")
+	backend := vbackend.(string)
+	address := vaddress.(string)
 	opt := file.StoreOptions{
-		FileSize: (1 << 10) * 50,
+		FileSize: (1 << 20) * 10,
 		WarehouseBackend: backend,
 		WarehouseAddress:  address,
 	}
